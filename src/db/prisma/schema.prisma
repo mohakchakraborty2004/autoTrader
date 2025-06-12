@@ -1,0 +1,54 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model user {
+  id String @id @default(uuid())
+  telegramId String @unique
+  userWatches userWatch[]
+  createdAt  DateTime @default(now())
+}
+
+model token {
+  id String @id @default(uuid())
+  symbol String @unique
+  decisions decisions[]
+  userWatches userWatch[]
+  createdAt  DateTime @default(now())
+}
+
+model decisions {
+   id String @id @default(uuid())
+   token      token    @relation(fields: [tokenId], references: [id])
+   tokenId    String
+   xUsername  String
+  postUrl    String
+  content    String
+  decision   Boolean
+  reason     String
+  timestamp  DateTime @default(now())
+}
+
+model userWatch {
+   id String @id @default(uuid())
+telegramUserId String
+telegramUser user @relation(fields: [telegramUserId], references: [id]) 
+
+tokenId String
+token   token  @relation(fields: [tokenId], references: [id])
+
+Xusername String
+createdAt DateTime @default(now())
+}
