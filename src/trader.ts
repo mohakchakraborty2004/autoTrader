@@ -25,6 +25,7 @@ accessSecret : ACCESS_TOKEN_SECRET
 
 
 export async function analyzeTweet( tweet : string, history : string[], token: string ) {
+    console.log("analysing....")
 
     const prompt = `Here is the token that is listedd on the market. You will be given the latest tweet of the token's founder
     and based on that you'll tell whether this token will profit me or not in the upcoming days if I buy certain amount of that coin.
@@ -66,11 +67,14 @@ const response = await ai.models.generateContent({
       },
     },
   });
+
+  console.log(response.text)
   return response.text;
 }
 
 export async function fetchTweets( username: string) {
-    const count = 3
+    console.log("fetching...")
+    const count = 6
     const user = await twitterClient.v2.userByUsername(username)
     if(!user)  {
         return []
@@ -81,9 +85,19 @@ export async function fetchTweets( username: string) {
 
 export async function checkCoin(token_symbol : string) {
 // jupyter check whether te mentioned token to be tracked exists or not
-const res = await axios.get('https://quote-api.jup.ag/v6/tokens')
-//@ts-ignore
-return res.data.some((r: any) => r.symbol.toUpperCase() === token_symbol.toUpperCase())
+ try {
+    const res = await axios.get('https://quote-api.jup.ag/v6/tokens');
+    console.log(res.data)
+    //@ts-ignore
+    const tokens = res.data?.tokens || res.data;
+    
+    if (!Array.isArray(tokens)) return false;
+
+    return tokens.some((t: any) => t.symbol?.toUpperCase() ===token_symbol.toUpperCase());
+  } catch (err) {
+    console.error("Jupiter API error:", err);
+    return false;
+  }
 }
 
 export async function buyToken(token_symbol : string) {

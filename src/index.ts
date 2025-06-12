@@ -13,6 +13,7 @@ const bot = new Telegraf(BOT_TOKEN)
 
 
 async function main() {
+    console.log("main function")
     const watches =  await prisma.userWatch.findMany({
         include :{
             token : {
@@ -36,10 +37,10 @@ async function main() {
 
         const aIresponse = await analyzeTweet(latest , tweets.slice(1), watch.token.symbol) 
 
-         if (!(await checkCoin(watch.token.symbol))) {
-        await bot.telegram.sendMessage(watch.telegramUserId, `Token ${watch.token.symbol} not found.`);
-        continue;
-         }
+        //  if (!(await checkCoin(watch.token.symbol))) {
+        // await bot.telegram.sendMessage(watch.telegramUserId, `Token ${watch.token.symbol} not found.`);
+        // continue;
+        //  }
 
          if (aIresponse) {
           await bot.telegram.sendMessage(watch.telegramUserId, `${aIresponse}`);
@@ -55,8 +56,8 @@ bot.command('register', async(ctx) => {
         return ctx.reply('usage: /register <Token_symbol> <X_username>')
     }
 
-    const exists = await checkCoin(token) 
-    if(!exists) return ctx.reply("no such token found blud")
+    // const exists = await checkCoin(token) 
+    // if(!exists) return ctx.reply("no such token found blud")
     
     const response = await prisma.user.create({
         data : {
@@ -81,7 +82,8 @@ bot.command('register', async(ctx) => {
   });
 
   if(createList) {
-   return ctx.reply(`Now watching ${xuser} for ${token}`)
+    ctx.reply(`Now watching ${xuser} for ${token}`)
+    main()
   } else {
     return ctx.reply("some error occured please try again later")
   }
@@ -99,3 +101,6 @@ bot.command('list', async (ctx) => {
   if (!watches.length) return ctx.reply('Nothing tracked yet.');
   ctx.reply(watches.map(w => `${w.Xusername} → ${w.token.symbol}`).join('\n'));
 });
+
+bot.launch();
+console.log("starting....")

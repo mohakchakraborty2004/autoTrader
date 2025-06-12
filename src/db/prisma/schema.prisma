@@ -6,7 +6,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -42,9 +41,9 @@ model decisions {
 }
 
 model userWatch {
-   id String @id @default(uuid())
+ id String @id @default(uuid())
 telegramUserId String
-telegramUser user @relation(fields: [telegramUserId], references: [id]) 
+telegramUser user @relation(fields: [telegramUserId], references: [telegramId]) 
 
 tokenId String
 token   token  @relation(fields: [tokenId], references: [id])
