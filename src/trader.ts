@@ -1,6 +1,6 @@
 //twitter client
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { TwitterApi } from "twitter-api-v2";
 import dotenv from "dotenv"
 import axios from "axios";
@@ -22,7 +22,7 @@ accessToken : ACCESS_TOKEN,
 accessSecret : ACCESS_TOKEN_SECRET
 })
 
-const lastSeen: Record<string, string> = {};
+
 
 export async function analyzeTweet( tweet : string, history : string[], token: string ) {
 
@@ -33,11 +33,7 @@ export async function analyzeTweet( tweet : string, history : string[], token: s
 
     Include the amount to buy in the response to why buy.
 
-    Strictly stick to json response format in the following way : 
-    {
-    shouldBuy :  true/false (boolean format),
-    reason : reason to buy or not buy (string format)
-    }
+    Strictly stick to json response format
 
     Here is the current tweet = ${tweet}
 
@@ -50,14 +46,26 @@ export async function analyzeTweet( tweet : string, history : string[], token: s
 
     const instructions =  "You are master of predicting which crypto coin gonna boom. You very perfectly and clearly analyze tweets of coin's founders based on sentiment of the tweets, voice tone , whether it gonna bring a super change in the crypto market. You'll strictly analyse the tweets given to you and tell whther the coin will boom or not."
 
-   const response = await ai.models.generateContent({
+const response = await ai.models.generateContent({
     model: "gemini-2.0-flash",
     contents: prompt,
     config: {
       systemInstruction: instructions,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          shouldBuy: {
+            type: Type.BOOLEAN,
+          },
+          reason: {
+            type: Type.STRING,
+          },
+        },
+        propertyOrdering: ["shouldBuy", "reason"],
+      },
     },
   });
-
   return response.text;
 }
 
@@ -65,9 +73,7 @@ export async function fetchTweets( username: string) {
     const count = 3
     const user = await twitterClient.v2.userByUsername(username)
     if(!user)  {
-        return {
-            msg :  "No user Found"
-        }
+        return []
     }
     const tweet = await twitterClient.v2.userTimeline(user.data.id, { max_results : count})
     return tweet.data.data?.map(t => t.text) || []
