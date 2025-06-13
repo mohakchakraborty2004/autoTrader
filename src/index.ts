@@ -51,23 +51,33 @@ async function main() {
 }
 
 bot.command('register', async(ctx) => {
-    const [token, xuser] = ctx.msg.text.split(' ').slice(1)
-    if (!token || !xuser) {
+    const [token, tokenAddress, xuser] = ctx.msg.text.split(' ').slice(1)
+    if (!token || !xuser || !tokenAddress) {
         return ctx.reply('usage: /register <Token_symbol> <X_username>')
     }
 
-    // const exists = await checkCoin(token) 
-    // if(!exists) return ctx.reply("no such token found blud")
+    const exists = await checkCoin(tokenAddress) 
+    if(!exists) return ctx.reply("no such token found blud")
     
-    const response = await prisma.user.create({
-        data : {
+    const response = await prisma.user.upsert({
+        where : {
+            telegramId : `${ctx.chat.id}`,
+        } , 
+        update : {} ,
+        create : {
             telegramId : `${ctx.chat.id}`,
         }
     })
 
-    const addTokenToDb = await prisma.token.create({
-        data : {
+    const addTokenToDb = await prisma.token.upsert({
+        create : {
            symbol :   token.toUpperCase()
+        }, 
+        update : {
+
+        }, 
+        where : {
+            symbol :   token.toUpperCase()
         }
     })
 

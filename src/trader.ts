@@ -22,7 +22,9 @@ accessToken : ACCESS_TOKEN,
 accessSecret : ACCESS_TOKEN_SECRET
 })
 
-
+interface DexScreenerResponse {
+  pairs: any[] | null;
+}
 
 export async function analyzeTweet( tweet : string, history : string[], token: string ) {
     console.log("analysing....")
@@ -83,21 +85,43 @@ export async function fetchTweets( username: string) {
     return tweet.data.data?.map(t => t.text) || []
 }
 
-export async function checkCoin(token_symbol : string) {
-// jupyter check whether te mentioned token to be tracked exists or not
- try {
-    const res = await axios.get('https://quote-api.jup.ag/v6/tokens');
-    console.log(res.data)
-    //@ts-ignore
-    const tokens = res.data?.tokens || res.data;
-    
-    if (!Array.isArray(tokens)) return false;
+export async function checkCoin(token_address : string) {
+//  try {
+//    const res = await axios.get<DexScreenerResponse>(`https://api.dexscreener.com/latest/dex/tokens/${token_address}`)
+//    return res.data.pairs && res.data.pairs.length > 0;
 
-    return tokens.some((t: any) => t.symbol?.toUpperCase() ===token_symbol.toUpperCase());
-  } catch (err) {
-    console.error("Jupiter API error:", err);
-    return false;
+//   } catch (err) {
+//     console.error("Jupiter API error:", err);
+//     return false;
+//   }
+ try {
+    logger.info(`Trying Solscan API for ${address}`);
+    const solscanResponse = await axios.get(`https://public-api.solscan.io/token/meta?tokenAddress=${address}`, {
+      headers: {
+        'Accept': 'application/json'
+      },
+      timeout: 10000
+    });
+    
+    if (solscanResponse.data && solscanResponse.data.symbol) {
+      logger.info(`Token verified via Solscan: ${solscanResponse.data.symbol}`);
+      
+      // Check market data
+      const hasMarket = await checkTokenMarket(address);
+      
+      return {
+        address,
+        symbol: solscanResponse.data.symbol,
+        name: solscanResponse.data.name || solscanResponse.data.symbol,
+        decimals: solscanResponse.data.decimals || 9,
+        market: hasMarket
+      };
+    }
+  } catch (error: any) {
+    logger.warn(`Solscan API error: ${error.message}`);
   }
+
+  // T
 }
 
 export async function buyToken(token_symbol : string) {
