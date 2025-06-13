@@ -1,7 +1,7 @@
 import { Telegraf } from "telegraf"
 import prisma from "./db/db"
 import dotenv from "dotenv"
-import { analyzeTweet, checkCoin, fetchTweets } from "./trader"
+import { analyzeTweet, checkCoin, checkDexCoin, fetchTweets } from "./trader"
 
 
 dotenv.config()
@@ -56,8 +56,13 @@ bot.command('register', async(ctx) => {
         return ctx.reply('usage: /register <Token_symbol> <X_username>')
     }
 
-    const exists = await checkCoin(tokenAddress) 
-    if(!exists) return ctx.reply("no such token found blud")
+    const exists = await checkDexCoin(tokenAddress) 
+    if(!exists){
+          return ctx.reply("no such token found blud")
+    } else {
+        ctx.reply(`Your Token ${token} with address => ${tokenAddress}  is verified, we can proceed with further steps`)
+    }
+   
     
     const response = await prisma.user.upsert({
         where : {
@@ -99,6 +104,42 @@ bot.command('register', async(ctx) => {
   }
 })
 
+bot.start(async(ctx) => {
+    ctx.reply(`
+        Welcome to flyingJatt trader Bot. 
+        Please enter the token You want to watch in this format :
+        /register <token> <token_address> <twitter_handle> 
+
+        Enter /list to see the current list of trackings. 
+        Enter /verify <token_address> to verify your token.
+
+        Enter /help for all commands.
+
+        For any feedback dm us on @I_Mohak19. Thank you.
+        `)
+})
+
+bot.command('verify', async(ctx) => {
+     const [tokenAddress] = ctx.msg.text.split(' ').slice(1)
+     const verify = await checkDexCoin(tokenAddress)
+     if(verify) {
+         return ctx.reply(`token ${tokenAddress} verified`)
+     }
+    
+})
+
+bot.help(async(ctx) => {
+    ctx.reply(`
+        /register <token> <token_address> <twitter_handle>  (To track the user for token price change prediction)
+
+        /list (to watch which users and tokens you are tracking)
+
+        /verify (to verify the token)
+
+        /help  (to get all the commands)
+        
+        `)
+})
 
 bot.command('list', async (ctx) => {
   const watches = await prisma.userWatch.findMany({ where: { telegramUserId: `${ctx.chat.id}` }, include : {

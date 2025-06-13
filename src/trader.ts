@@ -7,6 +7,45 @@ import axios from "axios";
 
 dotenv.config()
 
+
+interface TokenMetadata {
+  name: string;
+  image: string;
+  symbol: string;
+  description: string;
+  twitter: string;
+  website: string;
+}
+
+// Main Token Data Interface
+interface SolanaTokenData {
+  address: string;
+  name: string;
+  symbol: string;
+  icon: string;
+  decimals: number;
+  holder: number;
+  creator: string;
+  create_tx: string; // This is the mint hash
+  created_time: number; 
+  metadata: TokenMetadata;
+  metadata_uri: string;
+  mint_authority: string | null;
+  freeze_authority: string | null;
+  supply: string; 
+  price: number;
+  volume_24h: number;
+  market_cap: number;
+  market_cap_rank: number;
+  price_change_24h: number;
+}
+
+// Complete API Response Interface
+interface SolanaTokenResponse {
+  success: boolean;
+  data: SolanaTokenData;
+}
+
 const API_KEY = process.env.API_KEY as string
 const API_KEY_SECRET = process.env.API_KEY_SECRET as string
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN as string
@@ -85,43 +124,56 @@ export async function fetchTweets( username: string) {
     return tweet.data.data?.map(t => t.text) || []
 }
 
-export async function checkCoin(token_address : string) {
-//  try {
-//    const res = await axios.get<DexScreenerResponse>(`https://api.dexscreener.com/latest/dex/tokens/${token_address}`)
-//    return res.data.pairs && res.data.pairs.length > 0;
-
-//   } catch (err) {
-//     console.error("Jupiter API error:", err);
-//     return false;
-//   }
- try {
-    logger.info(`Trying Solscan API for ${address}`);
-    const solscanResponse = await axios.get(`https://public-api.solscan.io/token/meta?tokenAddress=${address}`, {
-      headers: {
-        'Accept': 'application/json'
-      },
+export async function checkDexCoin(token_address : string) {
+     try {
+    console.log(`Trying Dexscreener API for ${token_address}`);
+    const dexscreenerResponse = await axios.get<any>(`https://api.dexscreener.com/latest/dex/tokens/${token_address}`, {
       timeout: 10000
     });
     
-    if (solscanResponse.data && solscanResponse.data.symbol) {
-      logger.info(`Token verified via Solscan: ${solscanResponse.data.symbol}`);
+    if (dexscreenerResponse.data && dexscreenerResponse.data.pairs && dexscreenerResponse.data.pairs.length > 0) {
+      const pair = dexscreenerResponse.data.pairs[0];
+      const tokenData = pair.baseToken.address.toLowerCase() === token_address.toLowerCase() ? 
+        pair.baseToken : pair.quoteToken;
       
-      // Check market data
-      const hasMarket = await checkTokenMarket(address);
-      
-      return {
-        address,
-        symbol: solscanResponse.data.symbol,
-        name: solscanResponse.data.name || solscanResponse.data.symbol,
-        decimals: solscanResponse.data.decimals || 9,
-        market: hasMarket
-      };
+      console.log(`Token verified via Dexscreener: ${tokenData.symbol}`);
+     
+      return true
     }
   } catch (error: any) {
-    logger.warn(`Solscan API error: ${error.message}`);
+    console.log(`Dexscreener API error: ${error.message}`);
   }
 
-  // T
+}
+
+export async function checkCoin(token_address : string) {
+ try {
+    console.log(`Trying Solscan API for ${token_address}`);
+  const requestOptions = {
+  method: "get",
+  url: "https://pro-api.solscan.io/v2.0/token/meta",
+  params: {
+    address: token_address,
+  },
+  headers: {
+    token: process.env.SOLSCAN_TOKEN },
+}
+
+    const solscanResponse = await axios.request<SolanaTokenResponse>(requestOptions)
+
+    
+    if (solscanResponse.data && solscanResponse.data.data) {
+      console.log(`Token verified via Solscan: ${solscanResponse.data.data.metadata.symbol}`);
+            
+      return {
+        exists : true,
+
+      }
+    }
+  } catch (error: any) {
+    console.log(`Solscan API error: ${error.message}`);
+  }
+
 }
 
 export async function buyToken(token_symbol : string) {
