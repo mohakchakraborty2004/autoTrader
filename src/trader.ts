@@ -65,7 +65,7 @@ interface DexScreenerResponse {
   pairs: any[] | null;
 }
 
-export async function analyzeTweet( tweet : string, history : string[], token: string ) {
+export async function analyzeTweet( tweet : string, history : string[], token: string, token_Address: string ) {
     console.log("analysing....")
 
     const prompt = `Here is the token that is listedd on the market. You will be given the latest tweet of the token's founder
@@ -144,7 +144,10 @@ export async function checkDexCoin(token_address : string) {
       
       console.log(`Token verified via Dexscreener: ${tokenData.symbol}`);
      
-      return true
+      return {
+        exists : true,
+        symbol : tokenData.symbol
+      }
     }
   } catch (error: any) {
     console.log(`Dexscreener API error: ${error.message}`);
@@ -188,6 +191,8 @@ export async function buyToken(token_symbol : string) {
     msg : `buying ${token_symbol} tokens on jupyter`
   }
 }
+
+
 
 
 

@@ -20,6 +20,10 @@ interface TokenInfo {
   };
 }
 
+interface resp {
+    msg : string
+    signature : string
+}
 
 // Main swap function 
 export async function swapToken(
@@ -27,7 +31,7 @@ export async function swapToken(
   tokenAmount: number,
   privateKey: string,
   slippage: number = 100 // 1% default
-): Promise<string> {
+ ): Promise<resp> {
   
   const connection = new Connection('https://api.mainnet-beta.solana.com');
   const SOL_MINT = 'So11111111111111111111111111111111111111112';
@@ -108,7 +112,11 @@ export async function swapToken(
     await connection.confirmTransaction(signature, 'confirmed');
     
     console.log(`✅ Success! TX: https://solscan.io/tx/${signature}`);
-    return signature;
+    // return signature;
+    return {
+        msg : `✅ Success! TX: https://solscan.io/tx/${signature}` ,
+        signature : signature
+    }
 
   } catch (error) {
     console.error('❌ Swap failed:', error);

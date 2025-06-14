@@ -3,6 +3,9 @@ import prisma from "./db/db"
 import dotenv from "dotenv"
 import { analyzeTweet, buyToken, checkCoin, checkDexCoin, fetchTweets } from "./trader"
 import { swapToken } from "./buy"
+import crypto from "crypto-js" 
+
+
 
 interface aiResponse {
     shouldBuy : boolean
@@ -17,9 +20,10 @@ const interval = 500000
 const lastSeen: Record<string, string> = {};
 const BOT_TOKEN = process.env.BOT_TOKEN as string
 const bot = new Telegraf(BOT_TOKEN)
+const secret =  process.env.CRYPTO_SECRET as string
 
 
-async function main() {
+async function main( token_address : string) {
     console.log("main function")
     const watches =  await prisma.userWatch.findMany({
         include :{
@@ -42,7 +46,7 @@ async function main() {
 
         lastSeen[watch.Xusername] = latest
 
-        const aIresponse : aiResponse = await analyzeTweet(latest , tweets.slice(1), watch.token.symbol) 
+        const aIresponse : aiResponse = await analyzeTweet(latest , tweets.slice(1), watch.token.symbol, token_address) 
 
 
          if (aIresponse) {
@@ -53,32 +57,82 @@ async function main() {
             Why ? => ${aIresponse.reason}
 
             {Consider the buying amount based on the response}
-            Here's a safe amount to bet = ${aIresponse}
-            
-            If you want to proceed to buy tokens, enter :
-
-            /buy <private_key> <amount> <token_address>
-            
+            Here's a safe amount to bet = ${aIresponse.amount}
             `
+
+            
         
         );
+
+        if (!aIresponse.shouldBuy) {
+            await bot.telegram.sendMessage(watch.telegramUserId, `
+                
+                 If you want to proceed to buy tokens, enter :
+
+                /buy <private_key> <amount> <token_address>
+                
+                `)
+        } else if(aIresponse.shouldBuy) {
+            const fetchPK = await prisma.user.findUnique({
+                where : {
+                    telegramId : watch.telegramUserId
+                }, 
+                select : {
+                    privateKey : true
+                }
+            })
+
+            if(!fetchPK || !fetchPK.privateKey) {
+               await bot.telegram.sendMessage(watch.telegramUserId, `
+                 Some error occured
+                `)
+                continue;
+            }
+
+            const private_key = decrypt(fetchPK.privateKey)
+
+            //to actually buy token 
+            const buy : any = await swapToken(token_address, Number(aIresponse.amount), private_key)
+
+            if(buy) {
+                 await bot.telegram.sendMessage(watch.telegramUserId, `
+                
+                 ${buy.msg}
+
+                 here's the signature :  ${buy.signature}
+                
+                `)
+                continue;
+            } else {
+                 await bot.telegram.sendMessage(watch.telegramUserId, `
+                    Some error occured
+                `)
+
+                continue;
+            }
+
+        }
          }
 
     }
      setTimeout(main, interval);
 }
 
+
+
+//============================================ bot commands ===============================================
+
 bot.command('register', async(ctx) => {
-    const [token, tokenAddress, xuser] = ctx.msg.text.split(' ').slice(1)
-    if (!token || !xuser || !tokenAddress) {
-        return ctx.reply('usage: /register <Token_symbol> <X_username>')
+    const [token, tokenAddress, xuser, private_key] = ctx.msg.text.split(' ').slice(1)
+    if (!token || !xuser || !tokenAddress || !private_key) {
+        return ctx.reply('usage: /register <Token_symbol> <token_Address> <X_username> <private_key>')
     }
 
-    const exists = await checkDexCoin(tokenAddress) 
+    const exists : any = await checkDexCoin(tokenAddress) 
     if(!exists){
           return ctx.reply("no such token found blud")
     } else {
-        ctx.reply(`Your Token ${token} with address => ${tokenAddress}  is verified, we can proceed with further steps`)
+        ctx.reply(`Your Token ${exists.token} with address => ${tokenAddress}  is verified, we can proceed with further steps`)
     }
    
     
@@ -89,18 +143,19 @@ bot.command('register', async(ctx) => {
         update : {} ,
         create : {
             telegramId : `${ctx.chat.id}`,
+            privateKey : encrypt(private_key)
         }
     })
 
     const addTokenToDb = await prisma.token.upsert({
         create : {
-           symbol :   token.toUpperCase()
+           symbol :   exists.token
         }, 
         update : {
 
         }, 
         where : {
-            symbol :   token.toUpperCase()
+            symbol : exists.token
         }
     })
 
@@ -116,7 +171,7 @@ bot.command('register', async(ctx) => {
 
   if(createList) {
     ctx.reply(`Now watching ${xuser} for ${token}`)
-    main()
+    main(tokenAddress)
   } else {
     return ctx.reply("some error occured please try again later")
   }
@@ -124,14 +179,21 @@ bot.command('register', async(ctx) => {
 
 bot.start(async(ctx) => {
     ctx.reply(`
+
         Welcome to flyingJatt trader Bot. 
         Please enter the token You want to watch in this format :
-        /register <token> <token_address> <twitter_handle> 
+
+        /register <token> <token_address> <twitter_handle> <private_key>
 
         Enter /list to see the current list of trackings. 
+
         Enter /verify <token_address> to verify your token.
 
         Enter /help for all commands.
+
+
+        ** Please Note we ask for your private key to auto-swap tokens.
+        We save it our database safely hashed and maintain full privacy.
 
         For any feedback dm us on @I_Mohak19. Thank you.
         `)
@@ -146,9 +208,22 @@ bot.command('verify', async(ctx) => {
     
 })
 
+bot.command('encrypt', async(ctx) => {
+     const [tokenAddress] = ctx.msg.text.split(' ').slice(1)
+     const enc = encrypt(tokenAddress);
+     return ctx.reply(enc)
+})
+
+bot.command('decrypt', async(ctx) => {
+     const [tokenAddress] = ctx.msg.text.split(' ').slice(1)
+    
+     return ctx.reply(decrypt(tokenAddress))
+    
+})
+
 bot.help(async(ctx) => {
     ctx.reply(`
-        /register <token> <token_address> <twitter_handle>  (To track the user for token price change prediction)
+        /register <token> <token_address> <twitter_handle> <private_key>  (To track the user for token price change prediction)
 
         /list (to watch which users and tokens you are tracking)
 
@@ -185,6 +260,16 @@ bot.command('buy', async(ctx) => {
 
     return ctx.reply(res.msg)
 })
+
+function encrypt(text : string) {
+     return crypto.AES.encrypt(text, secret).toString()
+}
+
+function decrypt(ciphertext: string): string {
+  const bytes = crypto.AES.decrypt(ciphertext, secret)
+  return bytes.toString(crypto.enc.Utf8)
+}
+
 
 bot.launch();
 console.log("starting....")
