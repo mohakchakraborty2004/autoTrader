@@ -1,11 +1,18 @@
 import { Telegraf } from "telegraf"
 import prisma from "./db/db"
 import dotenv from "dotenv"
-import { analyzeTweet, checkCoin, checkDexCoin, fetchTweets } from "./trader"
+import { analyzeTweet, buyToken, checkCoin, checkDexCoin, fetchTweets } from "./trader"
+import { swapToken } from "./buy"
 
+interface aiResponse {
+    shouldBuy : boolean
+    reason : string
+    amount : number
+}
 
 dotenv.config()
 
+//approx 3 to 5 mins 
 const interval = 500000
 const lastSeen: Record<string, string> = {};
 const BOT_TOKEN = process.env.BOT_TOKEN as string
@@ -35,15 +42,26 @@ async function main() {
 
         lastSeen[watch.Xusername] = latest
 
-        const aIresponse = await analyzeTweet(latest , tweets.slice(1), watch.token.symbol) 
+        const aIresponse : aiResponse = await analyzeTweet(latest , tweets.slice(1), watch.token.symbol) 
 
-        //  if (!(await checkCoin(watch.token.symbol))) {
-        // await bot.telegram.sendMessage(watch.telegramUserId, `Token ${watch.token.symbol} not found.`);
-        // continue;
-        //  }
 
          if (aIresponse) {
-          await bot.telegram.sendMessage(watch.telegramUserId, `${aIresponse}`);
+          await bot.telegram.sendMessage(watch.telegramUserId, `
+
+            Should You buy the token based on the analysis = ${aIresponse.shouldBuy}
+
+            Why ? => ${aIresponse.reason}
+
+            {Consider the buying amount based on the response}
+            Here's a safe amount to bet = ${aIresponse}
+            
+            If you want to proceed to buy tokens, enter :
+
+            /buy <private_key> <amount> <token_address>
+            
+            `
+        
+        );
          }
 
     }
@@ -152,6 +170,21 @@ bot.command('list', async (ctx) => {
   if (!watches.length) return ctx.reply('Nothing tracked yet.');
   ctx.reply(watches.map(w => `${w.Xusername} → ${w.token.symbol}`).join('\n'));
 });
+
+bot.command('buy', async(ctx) => {
+      const [private_key, amount, tokenAddress] = ctx.msg.text.split(' ').slice(1)
+    if (!private_key || !amount || !tokenAddress) {
+        return ctx.reply('usage: /buy <private_key> <amount> <token_address> ')
+    }
+    const res : any = await buyToken(tokenAddress)
+
+
+
+    //to actually buy token 
+   // const buy = await swapToken(tokenAddress, Number(amount), private_key)
+
+    return ctx.reply(res.msg)
+})
 
 bot.launch();
 console.log("starting....")

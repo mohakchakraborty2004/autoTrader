@@ -71,9 +71,8 @@ export async function analyzeTweet( tweet : string, history : string[], token: s
     const prompt = `Here is the token that is listedd on the market. You will be given the latest tweet of the token's founder
     and based on that you'll tell whether this token will profit me or not in the upcoming days if I buy certain amount of that coin.
     You'll also analyse his previous decisions of tweets. And it should affect the current tweet decison as well.
-    You'll tell whether to buy or not, a safe amount to buy and a reason to buy.
+    You'll tell whether to buy or not, and a reason to buy. Also give a safe amount to buy.
 
-    Include the amount to buy in the response to why buy.
 
     Strictly stick to json response format
 
@@ -103,6 +102,9 @@ const response = await ai.models.generateContent({
           reason: {
             type: Type.STRING,
           },
+          amount : {
+            type : Type.INTEGER
+          }
         },
         propertyOrdering: ["shouldBuy", "reason"],
       },
@@ -110,7 +112,11 @@ const response = await ai.models.generateContent({
   });
 
   console.log(response.text)
-  return response.text;
+  if(response.text) {
+    const parsed = JSON.parse(response.text)
+    return parsed;
+  }
+  
 }
 
 export async function fetchTweets( username: string) {
@@ -146,6 +152,7 @@ export async function checkDexCoin(token_address : string) {
 
 }
 
+// need pro api
 export async function checkCoin(token_address : string) {
  try {
     console.log(`Trying Solscan API for ${token_address}`);
