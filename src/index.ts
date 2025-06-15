@@ -251,14 +251,18 @@ bot.command('buy', async(ctx) => {
     if (!private_key || !amount || !tokenAddress) {
         return ctx.reply('usage: /buy <private_key> <amount> <token_address> ')
     }
-    const res : any = await buyToken(tokenAddress)
+    // const res : any = await buyToken(tokenAddress)
 
+  //if it is uint8 array format
+  if (private_key.startsWith('[') && private_key.endsWith(']')) {
+  const parsed = JSON.parse(private_key) as number[];
+  const buy : any = await swapToken(tokenAddress, Number(amount), new Uint8Array(parsed))
+  return ctx.reply(buy.msg)
+}
 
-
-    //to actually buy token 
-   // const buy = await swapToken(tokenAddress, Number(amount), private_key)
-
-    return ctx.reply(res.msg)
+    //if it is base58 encoded already
+   const buy : any = await swapToken(tokenAddress, Number(amount), private_key)
+   return ctx.reply(buy.msg)
 })
 
 function encrypt(text : string) {

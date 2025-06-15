@@ -29,7 +29,7 @@ interface resp {
 export async function swapToken(
   tokenAddress: string,
   tokenAmount: number,
-  privateKey: string,
+  privateKey: string | Uint8Array,
   slippage: number = 100 // 1% default
  ): Promise<resp> {
   
@@ -38,8 +38,10 @@ export async function swapToken(
   
   try {
     // 1. Create wallet from private key
-    const keypair = Keypair.fromSecretKey(bs58.decode(privateKey));
-    console.log(`Using wallet: ${keypair.publicKey.toString()}`);
+   const keypair = typeof privateKey === 'string' 
+    ? Keypair.fromSecretKey(bs58.decode(privateKey))
+    : Keypair.fromSecretKey(privateKey);
+   console.log(`Using wallet: ${keypair.publicKey.toString()}`);
 
     // 2. Get token info and decimals
     const tokenInfoResponse = await axios.get<TokenInfo>(`https://lite-api.jup.ag/tokens/v1/token/${tokenAddress}`);
