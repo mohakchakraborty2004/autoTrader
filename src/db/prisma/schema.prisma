@@ -24,6 +24,7 @@ model user {
 model token {
   id String @id @default(uuid())
   symbol String @unique
+  address String @unique
   decisions decisions[]
   userWatches userWatch[]
   createdAt  DateTime @default(now())
@@ -46,8 +47,8 @@ model userWatch {
 telegramUserId String
 telegramUser user @relation(fields: [telegramUserId], references: [telegramId]) 
 
-tokenId String
-token   token  @relation(fields: [tokenId], references: [id])
+tokenAddress String
+token   token  @relation(fields: [tokenAddress], references: [address])
 
 Xusername String
 createdAt DateTime @default(now())

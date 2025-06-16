@@ -15,7 +15,7 @@ interface aiResponse {
 
 dotenv.config()
 
-//approx 3 to 5 mins 
+//approx 3 to 5 mins , kept this due to api rate limits
 const interval = 500000
 const lastSeen: Record<string, string> = {};
 const BOT_TOKEN = process.env.BOT_TOKEN as string
@@ -23,7 +23,7 @@ const bot = new Telegraf(BOT_TOKEN)
 const secret =  process.env.CRYPTO_SECRET as string
 
 
-async function main( token_address : string) {
+async function main() {
     console.log("main function")
     const watches =  await prisma.userWatch.findMany({
         include :{
@@ -46,7 +46,7 @@ async function main( token_address : string) {
 
         lastSeen[watch.Xusername] = latest
 
-        const aIresponse : aiResponse = await analyzeTweet(latest , tweets.slice(1), watch.token.symbol, token_address) 
+        const aIresponse : aiResponse = await analyzeTweet(latest , tweets.slice(1), watch.token.symbol, watch.tokenAddress) 
 
 
          if (aIresponse) {
@@ -67,7 +67,7 @@ async function main( token_address : string) {
         if (!aIresponse.shouldBuy) {
             await bot.telegram.sendMessage(watch.telegramUserId, `
                 
-                 If you want to proceed to buy tokens, enter :
+                 If you still want to proceed to buy tokens, enter :
 
                 /buy <private_key> <amount> <token_address>
                 
@@ -92,7 +92,7 @@ async function main( token_address : string) {
             const private_key = decrypt(fetchPK.privateKey)
 
             //to actually buy token 
-            const buy : any = await swapToken(token_address, Number(aIresponse.amount), private_key)
+            const buy : any = await swapToken(watch.tokenAddress, Number(aIresponse.amount), private_key)
 
             if(buy) {
                  await bot.telegram.sendMessage(watch.telegramUserId, `
@@ -117,7 +117,6 @@ async function main( token_address : string) {
     }
      setTimeout(main, interval);
 }
-
 
 
 //============================================ bot commands ===============================================
@@ -149,13 +148,15 @@ bot.command('register', async(ctx) => {
 
     const addTokenToDb = await prisma.token.upsert({
         create : {
-           symbol :   exists.token
+           symbol :   exists.token,
+           address :  tokenAddress
         }, 
         update : {
 
         }, 
         where : {
-            symbol : exists.token
+            symbol : exists.token,
+            address :  tokenAddress
         }
     })
 
@@ -165,13 +166,13 @@ bot.command('register', async(ctx) => {
     data: {
       telegramUserId: `${ctx.chat.id}`,
       Xusername: xuser.replace('@', ''),
-      tokenId : addTokenToDb.id
+      tokenAddress : addTokenToDb.address
     }
   });
 
   if(createList) {
     ctx.reply(`Now watching ${xuser} for ${token}`)
-    main(tokenAddress)
+    main()
   } else {
     return ctx.reply("some error occured please try again later")
   }
