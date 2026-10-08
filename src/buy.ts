@@ -64,12 +64,14 @@ export async function swapToken(
       `slippageBps=${slippage}&` +
       `swapMode=ExactOut`;
 
+    console.log(`Requesting quote from Jupiter: ${quoteUrl}`);
     const quoteResponse = await fetch(quoteUrl);
     const quote = await quoteResponse.json();
 
     if (!quoteResponse.ok) {
       throw new Error(`Quote failed: ${quote.error}`);
     }
+    console.log(`Quote received. outAmount: ${quote.outAmount}, priceImpactPct: ${quote.priceImpactPct}`);
 
     const solNeeded = parseInt(quote.inAmount) / 1e9;
     console.log(`SOL needed: ${solNeeded}`);
@@ -77,12 +79,14 @@ export async function swapToken(
     // 4. Check balance
     const balance = await connection.getBalance(keypair.publicKey);
     const solBalance = balance / 1e9;
+    console.log(`Current wallet balance: ${solBalance} SOL`);
 
     if (solBalance < solNeeded) {
       throw new Error(`Insufficient balance. Need: ${solNeeded} SOL, Have: ${solBalance} SOL`);
     }
 
     // 5. Get swap transaction
+    console.log('Requesting swap transaction from Jupiter...');
     const swapResponse = await fetch('https://quote-api.jup.ag/v6/swap', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -94,25 +98,28 @@ export async function swapToken(
     });
 
     const swapData = await swapResponse.json();
-    
+
     if (!swapResponse.ok) {
       throw new Error(`Swap failed: ${swapData.error}`);
     }
+    console.log('Swap transaction received, signing...');
 
     // 6. Sign and send transaction
     const txBuffer = Buffer.from(swapData.swapTransaction, 'base64');
     const transaction = VersionedTransaction.deserialize(txBuffer);
-    
+
     transaction.sign([keypair]);
-    
+
+    console.log('Sending signed transaction to the network...');
     const signature = await connection.sendRawTransaction(transaction.serialize(), {
       skipPreflight: false,
       maxRetries: 3
     });
+    console.log(`Transaction sent: ${signature}. Waiting for confirmation...`);
 
     // 7. Wait for confirmation
     await connection.confirmTransaction(signature, 'confirmed');
-    
+
     console.log(`✅ Success! TX: https://solscan.io/tx/${signature}`);
     // return signature;
     return {
